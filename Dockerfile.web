@@ -7,6 +7,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /ddz ./cmd/web
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates
 COPY --from=build /ddz /usr/local/bin/ddz
+COPY --from=build /src/LICENSE /usr/share/licenses/ddz/LICENSE
 USER 65532:65532
 ENV WEB_ADDR=0.0.0.0:9017
 EXPOSE 9017

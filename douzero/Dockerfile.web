@@ -4,6 +4,7 @@ RUN pip install --no-cache-dir numpy==2.4.6 onnxruntime==1.26.0
 COPY src ./src
 COPY server.py ./server.py
 RUN mkdir models && python -c "from server import download_models; download_models()"
+COPY LICENSE-DouZero ./LICENSE-DouZero
 USER 65532:65532
 ENV PYTHONUNBUFFERED=1
 EXPOSE 2021
