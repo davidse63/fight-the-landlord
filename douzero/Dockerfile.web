@@ -1,0 +1,11 @@
+FROM python:3.14-slim
+WORKDIR /app
+RUN pip install --no-cache-dir numpy==2.4.6 onnxruntime==1.26.0
+COPY src ./src
+COPY server.py ./server.py
+RUN mkdir models && python -c "from server import download_models; download_models()"
+USER 65532:65532
+ENV PYTHONUNBUFFERED=1
+EXPOSE 2021
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:2021/health')"
+CMD ["python", "server.py"]

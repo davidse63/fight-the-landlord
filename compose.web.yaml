@@ -1,0 +1,39 @@
+name: fengxun-ddz
+services:
+  game:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    environment:
+      WEB_ORIGINS: https://ddz.fengxun.ca
+      DOUZERO_URL: http://douzero:2021
+      TRUST_PROXY: "true"
+    depends_on:
+      douzero:
+        condition: service_healthy
+    networks:
+      default:
+      tunnel:
+        aliases: [fengxun-ddz]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 2
+  douzero:
+    build:
+      context: ./douzero
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 2
+networks:
+  tunnel:
+    external: true
+    name: n8n_default

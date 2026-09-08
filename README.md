@@ -1,3 +1,5 @@
+> **枫讯网页版：** [立即开玩](https://ddz.fengxun.ca/) · [网页版说明与部署](WEB-EDITION.md)。本分支基于 palemoky 原作开发，保留 GPL-3.0 许可。
+
 <div align="center">
     <img src="https://raw.githubusercontent.com/palemoky/fight-the-landlord/main/docs/logo.png" alt="Logo" height="100px" />
 

@@ -47,7 +47,10 @@ def load_sessions() -> None:
     providers = ["CPUExecutionProvider"]
     for pos in POSITIONS:
         path = os.path.join(MODEL_DIR, f"{pos}.onnx")
-        sessions[pos] = ort.InferenceSession(path, providers=providers)
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = 2
+        options.inter_op_num_threads = 1
+        sessions[pos] = ort.InferenceSession(path, sess_options=options, providers=providers)
         print(f"  Loaded  {pos}")
 
 
@@ -167,9 +170,16 @@ def build_infoset(data: dict) -> InfoSet:
         all_played,
     )
 
-    non_empty = [m for m in action_seq if m]
-    last_two = [non_empty[-1] if len(non_empty) >= 1 else [],
-                non_empty[-2] if len(non_empty) >= 2 else []]
+    # Match the training environment: passes are actions too. Every sequence
+    # starts with the landlord, so all position features come from public play.
+    last_two = [action_seq[-1] if action_seq else [],
+                action_seq[-2] if len(action_seq) >= 2 else []]
+    last_by_position = {p: [] for p in POSITIONS}
+    bomb_num = 0
+    for i, move in enumerate(action_seq):
+        last_by_position[POSITIONS[i % 3]] = move
+        if move == [20, 30] or (len(move) == 4 and len(set(move)) == 1):
+            bomb_num += 1
 
     rival_move = [] if must_play else last_move
     legal = get_legal_card_play_actions(hand, rival_move)
@@ -187,13 +197,10 @@ def build_infoset(data: dict) -> InfoSet:
     infoset.last_move = last_move
     infoset.last_two_moves = last_two
     infoset.num_cards_left = num_cards_left
-    infoset.bomb_num = 0
+    infoset.bomb_num = bomb_num
     infoset.last_pid = last_move_pos
-    infoset.last_move_dict = {p: [] for p in POSITIONS}
+    infoset.last_move_dict = last_by_position
     infoset.all_handcards = {position: hand}
-
-    if last_move_pos and last_move:
-        infoset.last_move_dict[last_move_pos] = last_move
 
     return infoset
 

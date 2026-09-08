@@ -18,8 +18,24 @@ const douzeroTimeout = 5 * time.Second
 
 // DouZeroEngine 调用 Python DouZero HTTP 服务做决策
 type DouZeroEngine struct {
-	serviceURL string
-	httpClient *http.Client
+	serviceURL     string
+	httpClient     *http.Client
+	fallbackEngine DecisionEngine
+}
+
+// NewDouZeroEngineWithFallback allows the web edition to retain complete legal
+// move generation when the neural service is unavailable.
+func NewDouZeroEngineWithFallback(url string, fallback DecisionEngine) *DouZeroEngine {
+	e := NewDouZeroEngine(url)
+	e.fallbackEngine = fallback
+	return e
+}
+
+func (e *DouZeroEngine) fallback(ctx context.Context, name string, gctx GameContext) []card.Card {
+	if e.fallbackEngine != nil {
+		return e.fallbackEngine.DecidePlay(ctx, name, gctx)
+	}
+	return rule.FindSmallestBeatingCards(gctx.Hand, gctx.RecentPlays[0].Played)
 }
 
 // NewDouZeroEngine 创建 DouZero 引擎
@@ -112,20 +128,20 @@ func (e *DouZeroEngine) DecidePlay(ctx context.Context, botName string, gctx Gam
 
 	if gctx.DouZeroPos == "" {
 		log.Printf("🎮 [DouZero] %s: 位置未知，回退规则出牌", botName)
-		return rule.FindSmallestBeatingCards(gctx.Hand, gctx.RecentPlays[0].Played)
+		return e.fallback(ctx, botName, gctx)
 	}
 
 	req := e.buildRequest(gctx)
 	action, err := e.callService(ctx, req)
 	if err != nil {
 		log.Printf("🎮 [DouZero] %s: 服务错误: %v，回退规则出牌", botName, err)
-		return rule.FindSmallestBeatingCards(gctx.Hand, gctx.RecentPlays[0].Played)
+		return e.fallback(ctx, botName, gctx)
 	}
 
 	if len(action) == 0 {
 		if gctx.MustPlay {
 			log.Printf("🎮 [DouZero] %s: 返回 pass 但必须出牌，回退规则出牌", botName)
-			return rule.FindSmallestBeatingCards(gctx.Hand, gctx.RecentPlays[0].Played)
+			return e.fallback(ctx, botName, gctx)
 		}
 		log.Printf("🎮 [DouZero] %s: pass", botName)
 		return nil
@@ -134,7 +150,7 @@ func (e *DouZeroEngine) DecidePlay(ctx context.Context, botName string, gctx Gam
 	cards := e.douzeroToCards(action, gctx.Hand)
 	if cards == nil {
 		log.Printf("🎮 [DouZero] %s: 牌面转换失败，回退规则出牌", botName)
-		return rule.FindSmallestBeatingCards(gctx.Hand, gctx.RecentPlays[0].Played)
+		return e.fallback(ctx, botName, gctx)
 	}
 
 	log.Printf("🎮 [DouZero] %s 出牌: %s", botName, cardsToStr(cards))

@@ -57,23 +57,48 @@ func isTrioWithKickers(analysis HandAnalysis, cards []card.Card) (ParsedHand, bo
 
 // isPlane 飞机
 func isPlane(analysis HandAnalysis, cards []card.Card) (ParsedHand, bool) {
-	cardLen, planeLen := len(cards), len(analysis.trios)
-	if isContinuous(analysis.trios) && planeLen >= 2 {
-		hand := ParsedHand{KeyRank: analysis.trios[0], Length: planeLen, Cards: cards}
-		// 飞机不带翅膀
-		if planeLen*3 == cardLen { // AAABBB+
-			hand.Type = Plane
-			return hand, true
+	// The body cannot contain 2/jokers or reuse its own rank as wings.
+	// Single wings may themselves form pairs, as in 33344455.
+	for _, width := range []int{3, 4, 5} {
+		if len(cards)%width != 0 || len(cards)/width < 2 {
+			continue
 		}
-		// 飞机带单
-		if planeLen*4 == cardLen && len(analysis.ones) == planeLen { // AAABBBCD+、AAABBAC+、AAABBBCC+
-			hand.Type = PlaneWithSingles
-			return hand, true
-		}
-		// 飞机带对
-		if planeLen*5 == cardLen && len(analysis.pairs) == planeLen { // AAABBBCCDD+
-			hand.Type = PlaneWithPairs
-			return hand, true
+		n := len(cards) / width
+		for start := card.Rank3; start+card.Rank(n)-1 <= card.RankA; start++ {
+			valid := true
+			for r := start; r < start+card.Rank(n); r++ {
+				if analysis.counts[r] != 3 {
+					valid = false
+					break
+				}
+			}
+			if !valid {
+				continue
+			}
+			if width == 5 {
+				pairs := 0
+				for r, c := range analysis.counts {
+					if r >= start && r < start+card.Rank(n) {
+						continue
+					}
+					if c != 2 {
+						valid = false
+						break
+					}
+					pairs++
+				}
+				valid = valid && pairs == n
+			}
+			if valid {
+				kind := Plane
+				if width == 4 {
+					kind = PlaneWithSingles
+				}
+				if width == 5 {
+					kind = PlaneWithPairs
+				}
+				return ParsedHand{Type: kind, KeyRank: start, Length: n, Cards: cards}, true
+			}
 		}
 	}
 	return ParsedHand{}, false
